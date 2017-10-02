@@ -1,25 +1,149 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_Template.Rmd"
+author: "mt"
+date: "October 1, 2017"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 
-## Loading and preprocessing the data
+library(dplyr)
+library(tidyr)
+library(readr)
+library(ggplot2)
+
+```
+
+Github location is  <https://github.com/mtrinn/RepData_PeerAssessment1>.
+
+## Loading and preprocessing data
 
 
+We load the data activity:
 
+```{r}
+activity=read_csv('activity.csv')
+
+summary(activity)
+
+head(activity,5)
+
+```
+
+We remove the NA observations in step:
+
+```{r}
+activitynona <- activity %>% filter(!is.na(steps))
+summary(activitynona)
+str(activitynona)
+```
 ## What is mean total number of steps taken per day?
 
+We calculate the total number of steps taken per day:
 
+```{r}
+ndaysteps <- activitynona %>% group_by(date) %>% summarize(ssteps=sum(steps)) 
+head(ndaysteps)
+```
+
+We plot a histogram of the total number of steps taken each day. We calculate first the total number of steps for each day:
+
+```{r}
+qplot(ndaysteps$ssteps, geom="histogram") 
+```
+
+We calculate and report the mean and median of the total number of steps taken per day:
+
+```{r}
+nsteps <- activitynona %>% group_by(date) %>% summarize(ssteps=sum(steps)) %>% summarize(mean(ssteps), median(ssteps)) 
+nsteps
+# answer is
+#  `mean(ssteps)` `median(ssteps)`
+#           <dbl>            <int>
+#       10766.19            10765
+```
 
 ## What is the average daily activity pattern?
 
+We calculate the average number of steps per 5-minute interval averaged across all days and plot the average steps (y-axis)against the intervals (x-axis):
 
+```{r}
+avsteps <- activitynona %>% group_by(interval) %>% summarize(msteps=mean(steps)) 
+
+qplot(avsteps$interval,avsteps$msteps)+geom_line()
+```
+
+We look for the interval with the maximum number of steps:
+
+```{r}
+avsteps[avsteps[,2]==max(avsteps$msteps),]
+# A tibble: 1 x 2
+#  interval   msteps
+#     <int>    <dbl>
+#      835 206.1698
+# answer is interval 835
+```
 
 ## Imputing missing values
 
+We look for the number of missing values, we can use the function summary on the original activity data:
 
+```{r}
+summary(activity)
+ #Min.   :  0.00   Min.   :2012-10-01   Min.   :   0.0  
+ #1st Qu.:  0.00   1st Qu.:2012-10-16   1st Qu.: 588.8  
+ #Median :  0.00   Median :2012-10-31   Median :1177.5  
+ #Mean   : 37.38   Mean   :2012-10-31   Mean   :1177.5  
+ #3rd Qu.: 12.00   3rd Qu.:2012-11-15   3rd Qu.:1766.2  
+ #Max.   :806.00   Max.   :2012-11-30   Max.   :2355.0  
+ #NA's   :2304  
+# answer: there are 2,304 missing values
+```
+
+We can replace missing values by the average number of steps for the interval:
+
+```{r}
+activity1 <- activity %>% group_by(interval) %>% mutate(steps=ifelse(is.na(steps),mean(steps,na.rm=TRUE),steps))
+head(activity1,10)
+```
+
+We make a histogram of the total number of steps taken each day:
+
+```{r}
+ndaysteps1 <- activity1 %>% group_by(date) %>% summarize(ssteps=sum(steps)) 
+
+qplot(ndaysteps1$ssteps, geom="histogram") 
+```
+
+We calculate and report the mean and median total number of steps taken per day.
+
+```{r}
+nsteps1 <- activity1 %>% group_by(date) %>% summarize(ssteps=sum(steps)) %>% summarize(mean(ssteps), median(ssteps)) 
+nsteps1
+# answer:
+#`mean(ssteps)` `median(ssteps)`
+#           <dbl>            <dbl>
+#       10766.19         10766.19
+  
+```
+We see that the estimates of the total number of steps is the same for the mean (10766.19) and slighlty higher for the median (10766.16 vs 10765 before).
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+We create weekday column:
+
+```{r}
+activity2 <- activity1  %>% mutate(day=ifelse((weekdays(date,abbreviate=TRUE)=="Sat" | weekdays(date,abbreviate=TRUE)=="sun"),"weekend","weekday"))
+```
+
+
+```{r}
+avsteps2 <- activity2 %>% group_by(interval,day) %>% summarize(msteps=mean(steps)) 
+
+p<-ggplot(avsteps2,aes(interval,msteps))+geom_line()
+p + facet_grid(. ~ day)
+
+```
+
+We see during the week there is lot activities in the morning, probably before people go to work. During the weekend, there is also acitivities in the afternoon.
